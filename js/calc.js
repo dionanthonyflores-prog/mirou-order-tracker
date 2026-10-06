@@ -95,6 +95,36 @@ export function driverMessage(order) {
   return lines.join('\n');
 }
 
+// ----- Backup: all orders as a spreadsheet file (CSV) -----
+const CSV_COLUMNS = ['Order', 'Date', 'Time', 'Customer', 'Contact', 'Pick up or delivery', 'Address', 'Drinks', 'Cups',
+  'Drinks total', 'Delivery fee', 'Total', 'Status', 'Paid', 'Paid by', 'Notes'];
+const csvTime = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: false });
+
+/** One cell: quoted when needed, and made safe to open in Google Sheets or Excel
+ *  (text starting with = + - @ could otherwise run as a spreadsheet formula) */
+function csvCell(value) {
+  let text = String(value ?? '');
+  if (/^[=+\-@\t\r]/.test(text)) text = "'" + text;
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/** Every order, oldest first, one row each. Starts with a marker so Excel shows ₱ and accents correctly. */
+export function ordersCsv(orders) {
+  const rows = [...orders].sort((a, b) => a.createdAt.localeCompare(b.createdAt)).map(o => [
+    o.no, manilaDay(o.createdAt), csvTime.format(new Date(o.createdAt)), o.customer, o.contact,
+    o.how === 'delivery' ? 'Delivery' : 'Pick up', o.address, o.items.map(itemLabel).join('; '), cupCount(o),
+    drinksTotal(o), deliveryFee(o), orderTotal(o), STATUS[o.status], o.paid ? 'Yes' : 'No', o.paid ? PAYMENT[o.paidBy] : '', o.notes,
+  ]);
+  return '﻿' + [CSV_COLUMNS, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n') + '\r\n';
+}
+
+/** Whole days since the last backup, or null if there has never been one */
+export function daysSince(lastIso, now = new Date()) {
+  if (!lastIso) return null;
+  return Math.floor((new Date(now) - new Date(lastIso)) / 86_400_000);
+}
+export const BACKUP_EVERY_DAYS = 7;
+
 // ----- Checking an order before it is saved -----
 /** A list of what's missing or wrong; an empty list means the order can be saved */
 export function problemsWith(order) {

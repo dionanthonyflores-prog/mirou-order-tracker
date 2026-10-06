@@ -124,7 +124,7 @@ test.describe('Edit', { tag: '@T-REQ-01' }, () => {
         items: [{ drink: 'Matcha latte', size: '12oz', oat: false, qty: 2, unitPrice: 150 }],
       }]));
     });
-    await page.goto('./#/order/old-1/edit');
+    await page.goto('./?demo#/order/old-1/edit');
     await expect(page.locator('#form-total')).toHaveText('₱300');
     await page.getByLabel('Name').fill('Old price, edited');
     await page.getByRole('button', { name: 'Save changes' }).click();

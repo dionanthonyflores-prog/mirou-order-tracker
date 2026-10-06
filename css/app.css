@@ -140,3 +140,9 @@ legend { font-weight: 500; padding: 0; margin-bottom: 4px; }
 .problems { margin: 0 0 10px; padding-left: 20px; color: var(--red); }
 .problems:empty { display: none; }
 .save-bar .link-btn, .save-bar a.back-link { display: block; text-align: center; margin: 6px auto 0; }
+
+/* Backup reminder and account line */
+.reminder { margin: 0 0 16px; padding: 12px 14px; border-radius: 14px; background: #fff4dc; color: #6b4300; }
+.reminder .link-btn { color: #6b4300; padding: 0 0 0 4px; }
+.account { text-align: center; margin: 0 0 40px; }
+.account .link-btn { padding: 8px 4px; }

@@ -6,7 +6,7 @@ export const NOW = new Date('2026-10-06T07:00:00Z');
 /** Open the tracker with the demo's sample orders, or with no orders at all */
 export async function openApp(page: Page, { empty = false } = {}) {
   await page.clock.setFixedTime(NOW);
-  await page.goto(empty ? './?empty' : './');
+  await page.goto(empty ? './?empty' : './?demo');   // tests always use the demo, never her real orders
   await expect(page.getByRole('heading', { name: 'Today', level: 1 })).toBeVisible();
 }
 

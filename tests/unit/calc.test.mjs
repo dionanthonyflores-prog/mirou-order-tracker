@@ -106,6 +106,35 @@ test('UT-09 T-REQ-01 quantities stay from 1 to 99 (same rule as the website)', (
   assert.deepEqual(['5', '0', '', 'abc', '150', 99, -3].map(calc.toQty), [5, 1, 1, 1, 99, 99, 1]);
 });
 
+test('UT-11 T-REQ-11 the backup file has one row per order, oldest first, with the right totals', () => {
+  const csv = calc.ordersCsv([
+    order({ no: 102, createdAt: '2026-10-06T05:30:00Z', how: 'delivery', address: '12 Sample St., Bay', deliveryFee: 50,
+      paid: true, paidBy: 'gcash', status: 'done', items: [item('Matcha latte', '16oz', true, 2)] }),
+    order({ no: 101, createdAt: '2026-10-05T16:05:00Z' }),   // 12:05 am on 6 Oct in Manila
+  ]);
+  assert.ok(csv.startsWith('﻿'), 'starts with the marker Excel needs for ₱');
+  const lines = csv.slice(1).trimEnd().split('\r\n');
+  assert.equal(lines[0], 'Order,Date,Time,Customer,Contact,Pick up or delivery,Address,Drinks,Cups,Drinks total,Delivery fee,Total,Status,Paid,Paid by,Notes');
+  assert.equal(lines[1], '101,2026-10-06,00:05,Ana R.,,Pick up,,1× Matcha latte (12 oz),1,160,0,160,New,No,,');
+  assert.equal(lines[2], '102,2026-10-06,13:30,Ana R.,,Delivery,"12 Sample St., Bay","2× Matcha latte (16 oz, oatmilk)",2,410,50,460,Done,Yes,GCash,');
+  assert.equal(lines.length, 3);
+});
+
+test('UT-12 T-REQ-11 security: text in the backup can never run as a spreadsheet formula, and quotes or line breaks stay in their cell', () => {
+  const csv = calc.ordersCsv([order({ customer: '=HYPERLINK("http://example.com","Click")', notes: 'Line 1\nSay "hi"', contact: '+63 900 000 0001' })]);
+  const row = csv.slice(1).split('\r\n')[1];
+  assert.ok(row.includes(`"'=HYPERLINK(""http://example.com"",""Click"")"`), 'a leading = gets a protective apostrophe');
+  assert.ok(row.includes(`'+63 900 000 0001`), 'a leading + gets one too');
+  assert.ok(row.endsWith(`"Line 1\nSay ""hi"""`), 'quotes are doubled and the line break stays inside the quoted cell');
+});
+
+test('UT-13 T-REQ-11 the backup reminder counts whole days since the last backup', () => {
+  const now = new Date('2026-10-13T07:00:00Z');
+  assert.equal(calc.daysSince(null, now), null);
+  assert.equal(calc.daysSince('2026-10-06T07:00:00Z', now), 7);
+  assert.equal(calc.daysSince('2026-10-06T07:00:01Z', now), 6);
+});
+
 test('UT-10 money is shown in pesos with thousands separators', () => {
   assert.equal(calc.peso(0), '₱0');
   assert.equal(calc.peso(16280), '₱16,280');

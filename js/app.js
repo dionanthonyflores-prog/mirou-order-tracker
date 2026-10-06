@@ -6,9 +6,16 @@
 import { DRINKS, SIZES, PAYMENT } from './menu.js';
 import * as calc from './calc.js';
 import { demoStore } from './store-demo.js';
+import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
 
-// Phase 1 runs on demo data. "?empty" starts the demo with no orders (used by some tests).
-const store = demoStore({ withSamples: !new URLSearchParams(location.search).has('empty') });
+// Her real orders live in her private database. Adding "?demo" to the address opens the public demo instead,
+// with made-up orders kept only in this browser ("?empty" = the demo with no orders, used by some tests).
+const params = new URLSearchParams(location.search);
+const useDemo = params.has('demo') || params.has('empty') || !SUPABASE_URL || !SUPABASE_KEY;
+const store = useDemo
+  ? demoStore({ withSamples: !params.has('empty') })
+  : (await import('./store-supabase.js')).supabaseStore(SUPABASE_URL, SUPABASE_KEY);
+const BACKUP_KEY = useDemo ? 'mirou-tracker-last-backup-demo' : 'mirou-tracker-last-backup';
 
 const $ = id => document.getElementById(id);
 const main = $('main');
@@ -27,19 +34,31 @@ const timeFormat = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', h
 const dayFormat = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric' });
 const when = iso => (calc.manilaDay(iso) === calc.manilaDay(new Date()) ? '' : dayFormat.format(new Date(iso)) + ', ') + timeFormat.format(new Date(iso));
 
+/** Run something that talks to the database; if it fails, say why instead of failing silently */
+async function attempt(action) {
+  try { return await action(); } catch (error) { toast(error.message); return undefined; }
+}
+
 // ===== Moving between screens =====
-let firstScreen = true;
+let shownScreen = null;   // the screen on display, so a refresh of the same screen keeps its scroll position (T-BUG-001)
 async function route() {
   const hash = location.hash || '#/today';
-  let match;
-  if (hash === '#/new') renderForm(null);
-  else if ((match = hash.match(/^#\/order\/([\w-]+)\/edit$/))) renderForm(await store.get(match[1]), match[1]);
-  else if ((match = hash.match(/^#\/order\/([\w-]+)$/))) renderOrder(await store.get(match[1]), match[1]);
-  else renderToday(await store.list());
-  $('new-order').hidden = hash === '#/new';
-  // On every new screen (not the first one), start at the top and move keyboard and screen-reader focus to its heading
-  if (!firstScreen) { scrollTo(0, 0); main.querySelector('h1')?.focus(); }
-  firstScreen = false;
+  const user = store.isDemo ? null : await store.user();
+  $('new-order').hidden = hash === '#/new' || (!store.isDemo && !user);
+  const screen = !store.isDemo && !user ? 'login' : hash;
+  if (screen === 'login') renderLogin();
+  else {
+    let match;
+    await attempt(async () => {
+      if (hash === '#/new') renderForm(null);
+      else if ((match = hash.match(/^#\/order\/([\w-]+)\/edit$/))) renderForm(await store.get(match[1]), match[1]);
+      else if ((match = hash.match(/^#\/order\/([\w-]+)$/))) renderOrder(await store.get(match[1]), match[1]);
+      else renderToday(await store.list(), user);
+    });
+  }
+  // Only when she moves to a different screen: start at the top, and move keyboard and screen-reader focus to its heading
+  if (shownScreen !== null && screen !== shownScreen) { scrollTo(0, 0); main.querySelector('h1')?.focus(); }
+  shownScreen = screen;
 }
 addEventListener('hashchange', route);
 
@@ -59,13 +78,19 @@ function orderCard(o) {
   </li>`;
 }
 
-function renderToday(orders) {
+function lastBackup() { try { return localStorage.getItem(BACKUP_KEY); } catch { return null; } }
+
+function renderToday(orders, user) {
   const stats = calc.todayStats(orders);
   const today = calc.manilaDay(new Date());
   const open = orders.filter(calc.isOpen).sort((a, b) => a.createdAt.localeCompare(b.createdAt));   // oldest first: first in, first out
   const finished = orders.filter(o => !calc.isOpen(o) && calc.manilaDay(o.createdAt) === today).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const days = calc.daysSince(lastBackup());
+  const backupDue = orders.length > 0 && (days === null || days >= calc.BACKUP_EVERY_DAYS);
   main.innerHTML = `
     <h1 tabindex="-1">Today</h1>
+    ${backupDue ? `<p class="reminder" id="backup-reminder">${days === null ? 'No backup yet.' : `Your last backup was ${days} days ago.`}
+      <button type="button" class="link-btn" data-export>Download a backup now</button></p>` : ''}
     <dl class="stats">
       <div><dt>Sales (drinks)</dt><dd id="stat-sales">${calc.peso(stats.sales)}</dd></div>
       <div><dt>To collect</dt><dd id="stat-unpaid">${calc.peso(stats.unpaid)}</dd></div>
@@ -75,7 +100,56 @@ function renderToday(orders) {
     <h2>To do (${open.length})</h2>
     ${open.length ? `<ul class="orders" id="open-orders">${open.map(orderCard).join('')}</ul>` : '<p class="empty">No open orders. Enjoy the quiet ✿</p>'}
     ${finished.length ? `<details class="finished"><summary>Finished or cancelled today (${finished.length})</summary>
-      <ul class="orders" id="finished-orders">${finished.map(orderCard).join('')}</ul></details>` : ''}`;
+      <ul class="orders" id="finished-orders">${finished.map(orderCard).join('')}</ul></details>` : ''}
+
+    <section class="card" aria-labelledby="backup-h">
+      <h2 id="backup-h">Backup</h2>
+      <p id="backup-state" style="margin:0 0 10px">${days === null ? 'No backup downloaded on this phone yet.'
+        : `Last backup: ${days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`}.`}
+        Download one every week and save it in your Google Drive.</p>
+      <button type="button" class="btn ghost wide" data-export>Download all orders (spreadsheet)</button>
+    </section>
+    ${user ? `<p class="muted account">Logged in as ${esc(user.email)} · <button type="button" class="link-btn" id="log-out">Log out</button></p>` : ''}`;
+}
+
+// ===== Backup: download every order as a spreadsheet file =====
+async function exportOrders() {
+  const orders = await store.listAll();
+  const file = new Blob([calc.ordersCsv(orders)], { type: 'text/csv;charset=utf-8' });
+  const link = Object.assign(document.createElement('a'), { href: URL.createObjectURL(file), download: `mirou-orders-${calc.manilaDay(new Date())}.csv` });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 10_000);
+  try { localStorage.setItem(BACKUP_KEY, new Date().toISOString()); } catch { /* private mode */ }
+  toast(`Downloaded ${orders.length} orders. Save the file in your Google Drive.`);
+  route();
+}
+
+// ===== Log in (the real app only; the demo needs no login) =====
+function renderLogin() {
+  main.innerHTML = `
+    <h1 tabindex="-1">Log in</h1>
+    <form class="card" id="login-form" novalidate>
+      <label class="field">Email <input name="email" type="email" autocomplete="username" required></label>
+      <label class="field">Password <input name="password" type="password" autocomplete="current-password" required></label>
+      <p class="problems" id="login-problem" role="alert"></p>
+      <button class="btn wide" type="submit">Log in</button>
+    </form>
+    <p class="muted">Only the owner of mirou matcha can log in. Want to look around? <a href="?demo">Open the demo</a> with made-up orders.</p>`;
+  $('login-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const button = e.target.querySelector('button');
+    button.disabled = true;
+    try {
+      await store.logIn(String(f.get('email')).trim(), String(f.get('password')));
+      route();
+    } catch (error) {
+      $('login-problem').textContent = error.message;
+      button.disabled = false;
+    }
+  });
 }
 
 // ===== One order =====
@@ -146,24 +220,30 @@ main.addEventListener('click', async e => {
   if (b.dataset.next) {
     if (performance.now() < quietUntil) return;
     quietUntil = performance.now() + 700;
-    const o = await store.get(b.dataset.next);
-    const status = calc.nextStatus(o);
-    if (!status) return;
-    await store.update(o.id, { status });
-    toast(`Order #${o.no}: ${calc.STATUS[status]}`);
-    route();
+    await attempt(async () => {
+      const o = await store.get(b.dataset.next);
+      const status = calc.nextStatus(o);
+      if (!status) return;
+      await store.update(o.id, { status: calc.statusForHow(status, o.how) });
+      toast(`Order #${o.no}: ${calc.STATUS[status]}`);
+      route();
+    });
   } else if (b.dataset.pay) {
-    const o = await store.update(b.dataset.id, { paid: true, paidBy: b.dataset.pay });
-    toast(`Order #${o.no} paid by ${PAYMENT[o.paidBy]}`);
-    route();
+    await attempt(async () => {
+      const o = await store.update(b.dataset.id, { paid: true, paidBy: b.dataset.pay });
+      toast(`Order #${o.no} paid by ${PAYMENT[o.paidBy]}`);
+      route();
+    });
   } else if (b.dataset.unpay) {
-    const o = await store.update(b.dataset.unpay, { paid: false, paidBy: null });
-    toast(`Order #${o.no} marked as not paid`);
-    route();
+    await attempt(async () => {
+      const o = await store.update(b.dataset.unpay, { paid: false, paidBy: null });
+      toast(`Order #${o.no} marked as not paid`);
+      route();
+    });
   } else if (b.id === 'copy-driver') {
-    const text = calc.driverMessage(await store.get(b.dataset.id));
+    // Copy the message already on screen, straight away: phones only allow copying right after a tap
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText($('driver-message').textContent);
       toast("Copied. Paste it in the driver's chat.");
     } catch {
       // No clipboard permission: select the message so she can copy it herself
@@ -177,9 +257,18 @@ main.addEventListener('click', async e => {
     $('confirm-cancel').hidden = true;
     $('cancel-order').hidden = false;
   } else if (b.dataset.cancel) {
-    const o = await store.update(b.dataset.cancel, { status: 'cancelled' });
-    toast(`Order #${o.no} cancelled`);
-    location.hash = '#/today';
+    await attempt(async () => {
+      const o = await store.update(b.dataset.cancel, { status: 'cancelled' });
+      toast(`Order #${o.no} cancelled`);
+      location.hash = '#/today';
+    });
+  } else if ('export' in b.dataset) {
+    b.disabled = true;
+    await attempt(exportOrders);
+    b.disabled = false;
+  } else if (b.id === 'log-out') {
+    await store.logOut();
+    route();
   }
 });
 

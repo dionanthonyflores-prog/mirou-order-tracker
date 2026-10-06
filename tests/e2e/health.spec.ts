@@ -11,7 +11,7 @@ test('TT-17 every screen loads with no errors or missing files, and nothing stic
   page.on('response', r => { if (r.status() >= 400) problems.push(`${r.status()} ${r.url()}`); });
   await openApp(page);
   for (const screen of SCREENS) {
-    await page.goto('./' + screen);
+    await page.goto('./?demo' + screen);
     await expect(page.locator('main h1')).toBeVisible();
     const { wide, screenWidth } = await page.evaluate(() => ({ wide: document.documentElement.scrollWidth, screenWidth: innerWidth }));
     expect(wide, `${screen} should not scroll sideways`).toBeLessThanOrEqual(screenWidth);
@@ -22,7 +22,7 @@ test('TT-17 every screen loads with no errors or missing files, and nothing stic
 test('TT-18 accessibility basics: every box and button has a name, and buttons are big enough to tap', async ({ page, isMobile }) => {
   await openApp(page);
   for (const screen of SCREENS) {
-    await page.goto('./' + screen);
+    await page.goto('./?demo' + screen);
     await expect(page.locator('main h1')).toBeVisible();
     const unnamed = await page.evaluate(() => [...document.querySelectorAll('main input:not([type=radio]), main select, main textarea, main button')]
       .filter(el => {

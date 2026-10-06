@@ -48,6 +48,7 @@ export function demoStore({ withSamples = true } = {}) {
   return {
     isDemo: true,
     async list() { return load(); },
+    async listAll() { return load(); },
     async get(id) { return load().find(o => o.id === id) ?? null; },
     async create(fields) {
       const orders = load();
