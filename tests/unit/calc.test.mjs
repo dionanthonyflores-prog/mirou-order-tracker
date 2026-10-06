@@ -106,6 +106,11 @@ test('UT-09 T-REQ-01 quantities stay from 1 to 99 (same rule as the website)', (
   assert.deepEqual(['5', '0', '', 'abc', '150', 99, -3].map(calc.toQty), [5, 1, 1, 1, 99, 99, 1]);
 });
 
+test('UT-10 money is shown in pesos with thousands separators', () => {
+  assert.equal(calc.peso(0), '₱0');
+  assert.equal(calc.peso(16280), '₱16,280');
+});
+
 test('UT-11 T-REQ-11 the backup file has one row per order, oldest first, with the right totals', () => {
   const csv = calc.ordersCsv([
     order({ no: 102, createdAt: '2026-10-06T05:30:00Z', how: 'delivery', address: '12 Sample St., Bay', deliveryFee: 50,
@@ -133,9 +138,4 @@ test('UT-13 T-REQ-11 the backup reminder counts whole days since the last backup
   assert.equal(calc.daysSince(null, now), null);
   assert.equal(calc.daysSince('2026-10-06T07:00:00Z', now), 7);
   assert.equal(calc.daysSince('2026-10-06T07:00:01Z', now), 6);
-});
-
-test('UT-10 money is shown in pesos with thousands separators', () => {
-  assert.equal(calc.peso(0), '₱0');
-  assert.equal(calc.peso(16280), '₱16,280');
 });

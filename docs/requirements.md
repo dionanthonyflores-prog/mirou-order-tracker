@@ -5,7 +5,7 @@
 | **Product** | A private order tracker for mirou matcha, a home-based matcha bar in Bay, Laguna |
 | **Owner** | The owner of mirou matcha (decides the requirements and signs off in UAT) |
 | **Tester** | Dion Anthony Flores |
-| **Status** | Phase 1 built in demo mode, 6 Oct 2026. Next: connect her private database (Supabase), then UAT. |
+| **Status** | Phase 1 built and connected to her private database (Supabase), 6 Oct 2026. Next: her login, then UAT. |
 
 ## Where the requirements came from
 
@@ -28,17 +28,23 @@ Asked the owner on 4 to 6 Oct 2026, before anything was built:
 | T-REQ-05 | Bestsellers for the week and the month. | | 3 | |
 | T-REQ-06 | Matcha and hojicha stock in grams. | Bags of 100, 250 or 500 g added on arrival; each cup uses its size's grams; the count can be corrected. | 2 | |
 | T-REQ-07 | "Order by" reminder for each powder. | Order-by date = run-out date − delivery days (7 by default, editable), using the busier of the last 7 or 14 days. Amber 3 days before, red on the day. With no sales yet it says it can't estimate. | 2 | |
-| T-REQ-08 | Only she can see her data. | Login required. Someone with the app's address but no login gets nothing back from the database. Typed text is always shown as text, never run as code. The tracker stays out of search engines. | 1 (security basics ✅), login with Supabase next | TT-06, 19 |
+| T-REQ-08 | Only she can see her data. | Login required. Someone with the app's address and public key but no login is refused when reading, adding, changing or deleting orders, and cannot create an account. Typed text is always shown as text, never run as code. The tracker stays out of search engines. | 1 ✅ | TT-06, 19, 24, 26 |
 | T-REQ-09 | A public demo with made-up orders, for the portfolio. | No real customer appears anywhere public. The demo can be reset. | 1 ✅ | TT-01, 20 |
 | T-REQ-10 | Paste the website's Messenger message to fill in an order. | Needs sizes on the website first (CR-02, approved, to follow). | 3 | |
+| T-REQ-11 | A backup she owns. (The free database plan has no backups.) | "Download all orders" gives a spreadsheet file with every order, safe to open in Google Sheets or Excel (no text can run as a formula). A reminder shows when there has never been a backup, or the last one is 7 or more days old. | 1 ✅ | UT-11–13; TT-21–23 |
+| T-REQ-12 | The database doesn't fall asleep. (Free projects pause after a week without use.) | A daily automatic check calls a harmless function that reads no data. | 1 ✅ | TT-25 |
 
-## Assumptions to confirm with the owner in UAT
+## Assumptions (confirmed on 6 Oct 2026)
 
 - Delivery fees are not counted as **sales** (they're shown separately and included in "to collect").
-- The delivery fee is typed per order (it isn't fixed per town).
+- The delivery fee is typed per order, because it varies.
 - A cancelled order stays in the list as "Cancelled" instead of being deleted.
 - New orders start as "Pick up" (same as the website); she switches to Delivery when needed.
 - The contact number is optional and only used for the driver.
+
+## Limits of the free database plan (checked 6 Oct 2026)
+
+500 MB of data (years of orders for a shop this size), no automatic backups (hence T-REQ-11), and a pause after a week without use (hence T-REQ-12; a paused project keeps its data and can be resumed from the Supabase dashboard).
 
 ## Changes
 

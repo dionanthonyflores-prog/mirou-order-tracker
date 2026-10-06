@@ -1,0 +1,29 @@
+# Free Supabase projects pause after a week without use. This runs once a day and calls the database's
+# harmless "ping" function (it reads no data), so the tracker stays awake even when the shop is closed for a while.
+# Note: GitHub switches off scheduled jobs in a repository that has had no changes for 60 days; it emails a warning first.
+name: Keep the database awake
+
+on:
+  schedule:
+    - cron: '17 1 * * *'      # every day at 9:17 am Manila time (01:17 UTC)
+  workflow_dispatch:          # adds a "Run workflow" button on the Actions tab
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: Call the keep-awake check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Call the database
+        run: node scripts/keep-awake.mjs
