@@ -1,0 +1,19 @@
+# Files git should ignore, so they are never uploaded to GitHub.
+
+# Installed tools and test output (re-created on every run)
+node_modules/
+test-results/
+playwright-report/
+blob-report/
+
+# Private settings: the real database keys never go on GitHub
+.env
+private/
+
+# Settings for the Claude app on this laptop
+.claude/
+
+# Files Windows and Mac create on their own
+Thumbs.db
+desktop.ini
+.DS_Store
