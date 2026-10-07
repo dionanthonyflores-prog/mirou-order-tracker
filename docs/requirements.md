@@ -5,7 +5,7 @@
 | **Product** | A private order tracker for mirou matcha, a home-based matcha bar in Bay, Laguna |
 | **Owner** | The owner of mirou matcha (decides the requirements and signs off in UAT) |
 | **Tester** | Dion Anthony Flores |
-| **Status** | Phase 1 built and connected to her private database (Supabase), 6 Oct 2026. Next: her login, then UAT. |
+| **Status** | Phase 1 live since 7 Oct 2026, with her login and private database (Supabase). Her trial (UAT) is on hold because she has no time right now; a [tester walkthrough on a real phone](uat-log.md#tester-walkthrough-on-a-real-phone-while-uat-is-on-hold) passed 6 of 6. |
 
 ## Where the requirements came from
 
